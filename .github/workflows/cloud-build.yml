@@ -1,0 +1,87 @@
+name: 🚀 Cloud App Builder
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      app_description:
+        description: 'App Description'
+        required: false
+        default: '{"app_name": "app-1768809647", "dependencies": ["react-native-vector-icons"], "screens": ["Home"], "features": ["Basic UI"]}'
+
+jobs:
+  generate-and-build:
+    runs-on: ubuntu-latest-4-cores  # Faster runner
+    
+    steps:
+    - name: 📦 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🏗️ Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: 🤖 AI Code Generation
+      id: generate
+      env:
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        APP_SPEC: ${{ github.event.inputs.app_description || '{"app_name": "app-1768809647", "dependencies": ["react-native-vector-icons"], "screens": ["Home"], "features": ["Basic UI"]}' }}
+      run: |
+        # Install python for AI calls
+        sudo apt-get update
+        sudo apt-get install -y python3 python3-pip
+        pip3 install requests
+        
+        # AI generates the actual app code
+        python3 .github/scripts/generate_app.py
+        
+    - name: 📱 Setup React Native
+      run: |
+        npm install -g react-native-cli
+        npx react-native init TempApp --version 0.72.0
+        cd TempApp
+        
+        # Install dependencies from AI spec
+        echo "Installing dependencies..."
+        
+    - name: 🏗️ Build Android APK
+      run: |
+        cd TempApp/android
+        ./gradlew assembleRelease
+        
+    - name: 📦 Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-build-${{ github.run_id }}
+        path: |
+          TempApp/android/app/build/outputs/apk/release/*.apk
+          TempApp/ios/build/Build/Products/Release-iphonesimulator/*.app
+          
+    - name: 🔗 Create Download Page
+      run: |
+        APK_URL="https://github.com/James-mwangi-creator/app-1768809647/releases/download/build/app-release.apk"
+        echo "BUILD_URL=$APK_URL" >> $GITHUB_ENV
+        
+    - name: 🎉 Post Build Results
+      run: |
+        echo "✅ App built successfully!"
+        echo "📱 APK available at: $BUILD_URL"
+        
+    - name: 📤 Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      if: success()
+      with:
+        files: TempApp/android/app/build/outputs/apk/release/*.apk
+        tag_name: build-${{ github.run_id }}
+        name: "AI Generated App Build"
+        body: |
+          🚀 AI-Generated React Native App
+          
+          **Features:**
+          - Basic UI
+          
+          Built automatically by Cloud App Builder
+          Generated at: $(date)
