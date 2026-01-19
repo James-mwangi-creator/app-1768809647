@@ -3,16 +3,11 @@ name: 🚀 Cloud App Builder
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
-    inputs:
-      app_description:
-        description: 'App Description'
-        required: false
-        default: '{"app_name": "app-1768809647", "dependencies": ["react-native-vector-icons"], "screens": ["Home"], "features": ["Basic UI"]}'
+  workflow_dispatch:  # THIS WAS MISSING!
 
 jobs:
-  generate-and-build:
-    runs-on: ubuntu-latest-4-cores  # Faster runner
+  build:
+    runs-on: ubuntu-latest
     
     steps:
     - name: 📦 Checkout code
@@ -22,66 +17,290 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
         
-    - name: 🤖 AI Code Generation
-      id: generate
-      env:
-        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        APP_SPEC: ${{ github.event.inputs.app_description || '{"app_name": "app-1768809647", "dependencies": ["react-native-vector-icons"], "screens": ["Home"], "features": ["Basic UI"]}' }}
+    - name: 📱 Create React Native App
       run: |
-        # Install python for AI calls
-        sudo apt-get update
-        sudo apt-get install -y python3 python3-pip
-        pip3 install requests
+        npx react-native init TodoApp --version 0.72.0
+        cd TodoApp
         
-        # AI generates the actual app code
-        python3 .github/scripts/generate_app.py
+        # Create blue theme todo app
+        cat > App.js << 'APPCODE'
+import React, { useState } from 'react';
+import {
+  SafeAreaView,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  StatusBar
+} from 'react-native';
+
+export default function App() {
+  const [todos, setTodos] = useState([]);
+  const [text, setText] = useState('');
+  const [completed, setCompleted] = useState({});
+
+  const addTodo = () => {
+    if (text.trim().length > 0) {
+      const newTodo = {
+        id: Date.now().toString(),
+        text: text.trim(),
+        createdAt: new Date().toLocaleTimeString()
+      };
+      setTodos([newTodo, ...todos]);
+      setText('');
+    }
+  };
+
+  const toggleComplete = (id) => {
+    setCompleted({
+      ...completed,
+      [id]: !completed[id]
+    });
+  };
+
+  const deleteTodo = (id) => {
+    setTodos(todos.filter(todo => todo.id !== id));
+  };
+
+  const TodoItem = ({ item }) => (
+    <View style={styles.todoItem}>
+      <TouchableOpacity 
+        style={[styles.checkbox, completed[item.id] && styles.checkboxCompleted]}
+        onPress={() => toggleComplete(item.id)}
+      >
+        {completed[item.id] && <Text style={styles.checkmark}>✓</Text>}
+      </TouchableOpacity>
+      
+      <Text style={[
+        styles.todoText,
+        completed[item.id] && styles.todoTextCompleted
+      ]}>
+        {item.text}
+      </Text>
+      
+      <TouchableOpacity 
+        style={styles.deleteButton}
+        onPress={() => deleteTodo(item.id)}
+      >
+        <Text style={styles.deleteText}>×</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor="#2196F3" barStyle="light-content" />
+      
+      <View style={styles.header}>
+        <Text style={styles.title}>📝 Blue Todo</Text>
+        <Text style={styles.subtitle}>Get things done in style!</Text>
+      </View>
+
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="What needs to be done?"
+          placeholderTextColor="#90CAF9"
+          value={text}
+          onChangeText={setText}
+          onSubmitEditing={addTodo}
+        />
+        <TouchableOpacity style={styles.addButton} onPress={addTodo}>
+          <Text style={styles.addButtonText}>+</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.stats}>
+        <Text style={styles.statsText}>
+          Total: {todos.length} | Completed: {Object.values(completed).filter(Boolean).length}
+        </Text>
+      </View>
+
+      <FlatList
+        data={todos}
+        renderItem={TodoItem}
+        keyExtractor={item => item.id}
+        style={styles.list}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>🎉 No tasks yet!</Text>
+            <Text style={styles.emptySubtext}>Add your first task above</Text>
+          </View>
+        }
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#E3F2FD',
+  },
+  header: {
+    backgroundColor: '#2196F3',
+    padding: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#BBDEFB',
+    marginTop: 5,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    padding: 20,
+    paddingBottom: 10,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 15,
+    fontSize: 16,
+    borderWidth: 2,
+    borderColor: '#2196F3',
+    marginRight: 10,
+    color: '#1565C0',
+  },
+  addButton: {
+    backgroundColor: '#2196F3',
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  stats: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#BBDEFB',
+    marginHorizontal: 20,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  statsText: {
+    color: '#0D47A1',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  list: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  todoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    borderLeftWidth: 5,
+    borderLeftColor: '#2196F3',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  checkboxCompleted: {
+    backgroundColor: '#2196F3',
+  },
+  checkmark: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  todoText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1565C0',
+  },
+  todoTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#90A4AE',
+  },
+  deleteButton: {
+    padding: 5,
+  },
+  deleteText: {
+    fontSize: 24,
+    color: '#F44336',
+    fontWeight: 'bold',
+  },
+  empty: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 20,
+    color: '#2196F3',
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  emptySubtext: {
+    color: '#64B5F6',
+    fontSize: 14,
+  },
+});
+APPCODE
         
-    - name: 📱 Setup React Native
+        # Update package.json with blue theme packages
+        npm install react-native-vector-icons react-native-safe-area-context
+        
+        echo "✅ Todo App created with blue theme!"
+        
+    - name: 📱 Build APK
       run: |
-        npm install -g react-native-cli
-        npx react-native init TempApp --version 0.72.0
-        cd TempApp
-        
-        # Install dependencies from AI spec
-        echo "Installing dependencies..."
-        
-    - name: 🏗️ Build Android APK
-      run: |
-        cd TempApp/android
+        cd TodoApp/android
         ./gradlew assembleRelease
         
-    - name: 📦 Upload Build Artifacts
+    - name: 📦 Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-build-${{ github.run_id }}
-        path: |
-          TempApp/android/app/build/outputs/apk/release/*.apk
-          TempApp/ios/build/Build/Products/Release-iphonesimulator/*.app
-          
-    - name: 🔗 Create Download Page
-      run: |
-        APK_URL="https://github.com/James-mwangi-creator/app-1768809647/releases/download/build/app-release.apk"
-        echo "BUILD_URL=$APK_URL" >> $GITHUB_ENV
+        name: todo-app-apk
+        path: TodoApp/android/app/build/outputs/apk/release/app-release.apk
         
-    - name: 🎉 Post Build Results
-      run: |
-        echo "✅ App built successfully!"
-        echo "📱 APK available at: $BUILD_URL"
-        
-    - name: 📤 Create GitHub Release
+    - name: 🎉 Create Release
       uses: softprops/action-gh-release@v1
       if: success()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        files: TempApp/android/app/build/outputs/apk/release/*.apk
-        tag_name: build-${{ github.run_id }}
-        name: "AI Generated App Build"
+        tag_name: build-v1.0
+        name: "Blue Todo App"
         body: |
-          🚀 AI-Generated React Native App
+          📱 Blue Theme Todo App
           
-          **Features:**
-          - Basic UI
+          Features:
+          - Add/Delete tasks
+          - Mark as complete
+          - Blue theme UI
+          - Task counter
           
-          Built automatically by Cloud App Builder
-          Generated at: $(date)
+          Built automatically with AI Mobile Builder
+        files: TodoApp/android/app/build/outputs/apk/release/app-release.apk
