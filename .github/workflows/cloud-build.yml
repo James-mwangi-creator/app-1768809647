@@ -3,7 +3,7 @@ name: 🚀 Cloud App Builder
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # THIS WAS MISSING!
+  workflow_dispatch:
 
 jobs:
   build:
@@ -23,8 +23,8 @@ jobs:
         npx react-native init TodoApp --version 0.72.0
         cd TodoApp
         
-        # Create blue theme todo app
-        cat > App.js << 'APPCODE'
+        # Create App.js with blue theme
+        cat > App.js << 'APP_EOF'
 import React, { useState } from 'react';
 import {
   SafeAreaView,
@@ -267,31 +267,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
-APPCODE
+APP_EOF
         
-        # Update package.json with blue theme packages
-        npm install react-native-vector-icons react-native-safe-area-context
+        # Install required packages
+        npm install react-native-safe-area-context
         
-        echo "✅ Todo App created with blue theme!"
+        echo "✅ Blue Todo App created!"
         
-    - name: 📱 Build APK
+    - name: 📱 Build Android APK
       run: |
         cd TodoApp/android
-        ./gradlew assembleRelease
+        chmod +x gradlew
+        ./gradlew assembleRelease --no-daemon
         
     - name: 📦 Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: todo-app-apk
-        path: TodoApp/android/app/build/outputs/apk/release/app-release.apk
+        name: blue-todo-apk
+        path: TodoApp/android/app/build/outputs/apk/release/*.apk
         
     - name: 🎉 Create Release
       uses: softprops/action-gh-release@v1
       if: success()
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: build-v1.0
+        tag_name: build-\${{ github.run_number }}
         name: "Blue Todo App"
         body: |
           📱 Blue Theme Todo App
@@ -299,8 +300,10 @@ APPCODE
           Features:
           - Add/Delete tasks
           - Mark as complete
-          - Blue theme UI
+          - Beautiful blue theme
           - Task counter
+          - Empty state screen
           
-          Built automatically with AI Mobile Builder
-        files: TodoApp/android/app/build/outputs/apk/release/app-release.apk
+          Built with AI Mobile Builder 🤖
+          Repository: https://github.com/\${{ github.repository }}
+        files: TodoApp/android/app/build/outputs/apk/release/*.apk
